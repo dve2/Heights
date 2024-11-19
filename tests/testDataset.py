@@ -14,7 +14,7 @@ class DatasetTest(unittest.TestCase):
             additional_targets={'mask2': 'mask'}
         )
 
-        ds = DoubleMaskDataset("tests/data",transform = transforms )
+        ds = DoubleMaskDataset("tests/data", transform = transforms )
         image, mask1, mask2, _ = ds[0]
         self.assertEqual(mask1.shape, mask2.shape)
 

@@ -4,15 +4,15 @@
 
 TODO: write info about project
 
-# Installation
-
 
 # Inference
+
+[inference example](https://colab.research.google.com/github/dve2/Heights/blob/main/notebooks/inference.ipynb)
 
 
 # Training
 
-    [colab example](https://colab.research.google.com/github)
+[train example](https://colab.research.google.com/github/dve2/Heights/blob/main/notebooks/Train_2ch_ml_dm.ipynb)
 
 Training dataset available by request
 
