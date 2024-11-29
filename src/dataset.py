@@ -240,14 +240,14 @@ class GroundDataset(BaseDataset):
         xy = ground.iloc[:, 1:3].to_numpy()
         img = image.copy()
 
-        cv2.imwrite('image.png', image*10)
+        #cv2.imwrite('image.png', image*10)
         h, w = image.shape[:2]
         ground_mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
         for x,y in xy:
-            _, msk = self.flood_fill(img, (x,y))
+            _, msk = self.flood_fill(img, (x, y))
             ground_mask = ground_mask + msk
         ground_mask = self.smooth(ground_mask[1:-1, 1:-1])
-        cv2.imwrite('msk.png', ground_mask * 255)
+        #cv2.imwrite('msk.png', ground_mask * 255)
 
         return image, mask, ground_mask,  meta
 
