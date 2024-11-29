@@ -4,3 +4,4 @@ albumentations
 pandas
 tqdm
 segmentation-models-pytorch
+pandas[excel]

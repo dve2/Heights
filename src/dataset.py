@@ -224,3 +224,59 @@ class DoubleMaskDataset(BaseDataset):
                 mask2 = self.target_transform(mask2)
         meta = {"w": real_w, 'name': name, "scale_factor": scale_factor}  # , centers: [[x1,y1],[x2,y2]]
         return image, mask, mask2, meta
+
+
+class GroundDataset(BaseDataset):
+
+    def get_label_path(self, name):
+        path = f"{self.root_dir}{os.sep}Labels{os.sep}{name}.xlsx"
+        return path
+
+    def __getitem__(self, n):
+        image, mask, meta = super().__getitem__(n)
+        name = self.items[n]
+        label_path = self.get_label_path(name)
+        ground = pd.read_excel(label_path)
+        xy = ground.iloc[:, 1:3].to_numpy()
+        img = image.copy()
+
+        cv2.imwrite('image.png', image*10)
+        h, w = image.shape[:2]
+        ground_mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+        for x,y in xy:
+            _, msk = self.flood_fill(img, (x,y))
+            ground_mask = ground_mask + msk
+        ground_mask = self.smooth(ground_mask[1:-1, 1:-1])
+        cv2.imwrite('msk.png', ground_mask * 255)
+
+        return image, mask, ground_mask,  meta
+
+    def flood_fill(self, im, seed_point):
+        """
+        loDiff (Lower Difference)
+
+            Definition: loDiff specifies the maximum lower brightness/color difference between the currently observed pixel and one of its neighbors belonging to the component, or the seed pixel being added to the component.
+
+            Interpretation: If the difference between the current pixel and its neighbor is less than or equal to loDiff, the neighbor is considered part of the same component.
+
+        upDiff (Upper Difference)
+
+            Definition: upDiff specifies the maximum upper brightness/color difference between the currently observed pixel and one of its neighbors belonging to the component, or the seed pixel being added to the component.
+
+            Interpretation: If the difference between the current pixel and its neighbor is less than or equal to upDiff, the neighbor is considered part of the same component.
+
+        """
+        image = im
+        h, w = image.shape[:2]
+        mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+
+        fill_color = 255
+        flags = cv2.FLOODFILL_FIXED_RANGE
+        cv2.floodFill(image, mask, seed_point, fill_color, loDiff=0.02, upDiff=0.02, flags=flags )
+        return image, mask
+
+    def smooth(self, mask):
+        kernel = np.ones((3, 3), np.float32)
+        closed_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,  kernel, iterations=2)
+        return closed_mask
+
