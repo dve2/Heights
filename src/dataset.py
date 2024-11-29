@@ -239,14 +239,14 @@ class GroundDataset(BaseDataset):
         ground = pd.read_excel(label_path)
         xy = ground.iloc[:, 1:3].to_numpy()
         img = image.copy()
-
-        #cv2.imwrite('image.png', image*10)
         h, w = image.shape[:2]
         ground_mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
-        for x,y in xy:
-            _, msk = self.flood_fill(img, (x, y))
+        for x, y in xy:
+            img_tmp, msk = self.flood_fill(img, (x, y))
             ground_mask = ground_mask + msk
+            ground_mask[ground_mask > 0] = 1  # to avoid overflow
         ground_mask = self.smooth(ground_mask[1:-1, 1:-1])
+        #cv2.imwrite('img.png', img_tmp)
         #cv2.imwrite('msk.png', ground_mask * 255)
 
         return image, mask, ground_mask,  meta
