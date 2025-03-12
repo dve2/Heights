@@ -232,6 +232,26 @@ class GroundDataset(BaseDataset):
         path = f"{self.root_dir}{os.sep}Labels{os.sep}{name}.xlsx"
         return path
 
+    def create_1ch_target(self, mask, ground_mask):  # нужен ли self среди аргументов?
+        h, w = mask.shape[:2]
+        target = np.zeros((h, w), dtype=np.uint8)  # заготовка для target'а; 0 отвечает за класс "остальные пиксели"
+        for i in range(h):
+            for j in range(w):
+                if mask[i][j].item() != 0.0:
+                    target[i][j] = 1  # 1 отвечает за класс "объект"
+                if ground_mask[i][j].item() != 0:
+                    target[i][
+                        j] = 2  # т.е. если пиксель попал и в объект и в уровень отсчета, то на target'е этот пиксель объявляем фоном (можно и наоборот) #2 отвечает за класс "уровень отсчета"
+        return torch.from_numpy(target)  # после unsqueeze(0) возвращает тензор torch.Size([192, 192])
+
+    def create_1ch_target_v1(self, mask, ground_mask):  # нужен ли self среди аргументов?
+        h, w = mask.shape[:2]
+        target = np.zeros((h, w), dtype=np.uint8)  # заготовка для target'а; 0 отвечает за класс "остальные пиксели"
+        target[mask > 0] = 1
+        target[ground_mask > 0] = 2
+        return torch.from_numpy(target)  # после unsqueeze(0) возвращает тензор torch.Size([192, 192])
+
+
     def __getitem__(self, n):
         image, mask, meta = super().__getitem__(n)
         name = self.items[n]
@@ -266,13 +286,14 @@ class GroundDataset(BaseDataset):
             Interpretation: If the difference between the current pixel and its neighbor is less than or equal to upDiff, the neighbor is considered part of the same component.
 
         """
-        image = im
+        image = np.copy(im)
+        image = (image - image.mean())/image.std()
         h, w = image.shape[:2]
         mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
 
         fill_color = 255
         flags = cv2.FLOODFILL_FIXED_RANGE
-        cv2.floodFill(image, mask, seed_point, fill_color, loDiff=0.02, upDiff=0.02, flags=flags )
+        cv2.floodFill(image, mask, seed_point, fill_color, loDiff=0.04, upDiff=0.04, flags=flags )
         return image, mask
 
     def smooth(self, mask):
