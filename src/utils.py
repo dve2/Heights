@@ -8,7 +8,6 @@ def get_max_inside_blobs(image, mask):
 
     # Get max for each blob (indices 1 to num_labels inclusive)
     max_values = ndimage.maximum(image, labels=labels, index=np.arange(1, num_labels + 1))
-    #Image.fromarray(image).save("image.png")
     max_points_2d = np.zeros_like(image)
 
     # Populate the 2D array with max values for each blob

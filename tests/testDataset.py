@@ -10,7 +10,7 @@ from PIL import Image
 from numpy.testing import assert_array_equal
 
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 class DatasetTest(unittest.TestCase):
     @unittest.skip("")
