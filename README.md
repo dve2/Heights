@@ -39,11 +39,10 @@ to [Inference folder](Inference)
 3. Activate virtual environment
 
        source venv/bin/activate
-4. 
-5. Run [predict.py](predict.py)
+4. Run [predict.py](predict.py)
 
        python predict.py
-6. Results will be saved into 
+5. Results will be saved into 
 
 
 
