@@ -5,6 +5,8 @@ from src.h_norm import NormalizeNonZero
 from dataset_inst import BaseDataset
 import albumentations as A
 import cv2
+import os
+import matplotlib.pyplot as plt
 
 def check_neigh(mask, coord):
     neighbours = []
@@ -57,6 +59,26 @@ def remain_max_dots(mask, image):
         max_val, idx = max((v, i) for i, v in enumerate(z_values))
         dotted_mask_from_mask[obj_coord[idx][0]][obj_coord[idx][1]] = 1
     return torch.from_numpy(dotted_mask_from_mask)
+
+
+def save(pred_whole_image, filename):
+    maxcoordinates = []
+    all_heights = []
+    for i in range(len(pred_whole_image)):
+        for j in range(len(pred_whole_image[0])):
+            if pred_whole_image[i][j]:
+                all_heights.append(pred_whole_image[i][j].item())
+                maxcoordinates.append((i, j))
+
+    with open(f"{filename}_N={len(all_heights)}.txt", 'w') as f:
+        f.writelines(f"{item}\n" for item in all_heights)
+
+    plt.figure(figsize=(5,4))
+    plt.suptitle(f"Heights {filename}, N = {len(all_heights)}")
+    plt.xlabel('Height, nm')
+    plt.ylabel('Number of particles')
+    plt.hist(all_heights, bins=20)
+    plt.savefig(f"{filename}_hist.png")
 
 
 def main():
@@ -152,10 +174,16 @@ def main():
         if i == (len(x_mesh) - 1):
             lsp = x_mesh[-2] + 192 - x_mesh[-1] - k
             column = column[:, lsp:]
-        pred_whole_image = torch.cat((pred_whole_image, column),
-                                     1) 
+        pred_whole_image = torch.cat((pred_whole_image, column),1)
+
+
+    # Dump results
+    output_folder = "results"
+    base_filename = meta['name']
+    save(pred_whole_image.detach(), f"{output_folder}{os.sep}Heights {base_filename}")
+
     result = (pred_whole_image.detach()).long().numpy()
-    cv2.imwrite('results/tmp.png', result)
+    cv2.imwrite(f'results/{base_filename}_img.png', result)
 
 
 if __name__ == '__main__':
