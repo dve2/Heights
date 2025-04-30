@@ -13,26 +13,15 @@ import ast
 import pickle
 import torchvision.transforms.functional as F
 from statistics import mode
-
-
 from torch.utils.data import DataLoader
 import numpy as np
 from tqdm import tqdm
 from torchvision.transforms import ToTensor
-'''
-def load_cache(filename = "cache.pickle"):
-      if os.path.isfile(filename):
-        with open(filename, 'rb') as f:
-           cache =  pickle.load(f)
-        print(f"Loaded cache from {filename}")
-        return cache
-      return {}
-'''
 
 class BaseDataset(Dataset):
     def __init__(self, root_dir, transform=None, target_transform = None, exclude = [], cache = None):
       images = glob(f"{root_dir}{os.sep}Images{os.sep}*")
-      labels = glob(f"{root_dir}{os.sep}Masks{os.sep}!*") # read only continuous heigths
+      labels = glob(f"{root_dir}{os.sep}Masks{os.sep}_*") # read only continuous heigths
       # extract id from paths
       im = set(map(lambda x: Path(x).stem,images))
       lab = set(map(lambda x: Path(x).stem[1:],labels))
@@ -50,7 +39,7 @@ class BaseDataset(Dataset):
           self.cache = {}
       else:
         self.cache = cache
-        
+
       #self.load_cache()
       #self.scales = self.get_all_scales()
 
@@ -70,14 +59,14 @@ class BaseDataset(Dataset):
       return path
 
     def get_mask_path(self,name):
-      path = f"{self.root_dir}{os.sep}Masks{os.sep}!{name}.txt"
+      path = f"{self.root_dir}{os.sep}Masks{os.sep}_{name}.txt"
       return path
-    
-    def save_cache(self,filename = "cache.pickle"):
+
+    def save_cache(self,filename = "cache.pickle"):#??
       with open(filename, 'wb') as f:
         pickle.dump(self.cache, f, pickle.HIGHEST_PROTOCOL)
 
-    def load_cache(self,filename = "cache.pickle"):
+    def load_cache(self,filename = "cache.pickle"):#??
       if os.path.isfile(filename):
         with open(filename, 'rb') as f:
           self.cache =  pickle.load(f)
@@ -100,7 +89,7 @@ class BaseDataset(Dataset):
     def txt2pil(self, filename):
       if filename in self.cache and "image" in self.cache[filename]:
         return self.cache[filename]["image"].copy(), self.cache[filename]["real_w"]
-
+    
       # convert list of relative heights to image
       with open(filename, encoding='unicode_escape') as file:
         x_line = file.readline() # X
@@ -138,16 +127,45 @@ class BaseDataset(Dataset):
 
 
     def get_height_map(self, path):
-      if not (path in self.cache and "mask" in self.cache[path]):       
+      if not (path in self.cache and "mask" in self.cache[path]):
           with open(path, 'r') as file:
             content = file.read()
           x = ast.literal_eval(content)
           x = np.array(x)
           self.cache[path] = { "mask" : x }
       return self.cache[path]["mask"].copy()
-      #return x
 
-
+    def x_from_y(self, y, i, j, area):
+        xmin = j - (area**2 - (y - i)**2)**0.5
+        xmax = j + (area**2 - (y - i)**2)**0.5
+        #return xmin, xmax
+        return round(xmin), round(xmax)
+     
+    def create_one_circle(self, cir_mask, i,j, area):
+        for y in range(max((i-area), 0), min((i+area+1), len(cir_mask))):
+            xminmax=[]
+            xminmax.append(self.x_from_y(y, i, j, area)[0])
+            xminmax.append(self.x_from_y(y, i, j, area)[1])
+            if y != max((i-area), 0):
+                xminmax.append(self.x_from_y(y-0.5, i, j, area)[0])
+                xminmax.append(self.x_from_y(y-0.5, i, j, area)[1])
+            if y != min(i+area, len(cir_mask)-1):
+                xminmax.append(self.x_from_y(y+0.5, i, j, area)[0])
+                xminmax.append(self.x_from_y(y+0.5, i, j, area)[1])
+            #for x in range(max(round(min(xminmax)),0), min(round(max(xminmax))+1, len(cir_mask[0]))):
+            for x in range(max(min(xminmax),0), min((max(xminmax)+1), len(cir_mask[0]))):
+                cir_mask[y][x] = 1
+        return cir_mask
+                
+    def make_circles(self, mask, area = 2):
+      cir_mask = np.zeros((mask.shape[0], mask.shape[1]))
+      for i in range(len(mask)):
+        for j in range(len(mask[i])):
+          if mask[i][j] != 0:
+            cir_mask = self.create_one_circle(cir_mask, i,j, area)
+      return cir_mask
+                       
+    
     def __getitem__(self,n):
       """
         img - data(raw heights) from microscope
@@ -160,21 +178,23 @@ class BaseDataset(Dataset):
       mask = self.get_mask_path(name)
 
       image, real_w = self.txt2pil(img)
-      mask = self.get_height_map(mask)
-
+      mask = self.get_height_map(mask) 
+      mask[mask > 0] = 1 #binarizing mask (target) for segmentation
+      mask = self.make_circles(mask)
       #image, orig_size, scale_factor = self.rescale(image,real_w)
       #mask, _, _ = self.rescale(mask,real_w)
-      scale_factor = 0 
+      scale_factor = 0
 
       if self.transform:
         output = self.transform(image=image, mask=mask)
         image = output['image']
-        mask = output['mask'] # here mask is cropped but not normalized 
+        mask = output['mask'] # here mask is cropped but not normalized
         # TODO resize to one scale
-        if self.target_transform:
-          mask = self.target_transform(mask) 
-      meta = {"w": real_w, 'name' : name, "scale_factor": scale_factor} # , centers: [[x1,y1],[x2,y2]] 
-      return image, mask, meta
+        #if self.target_transform:
+        #  mask = self.target_transform(mask)
+      meta = {"w": real_w, 'name' : name, "scale_factor": scale_factor}
+      mask=mask.type(torch.LongTensor)
+      return image, mask, meta  #normalized image (if tranform is true), binarized mask
 
     def rescale(self,img, real_w):
       resize_coeff = 1

@@ -1,7 +1,16 @@
 # Introduction
+The project is dedicated to the computation of globular object heights in scanning probe microscopy (SPM) images using a convolutional neural network with U-net architecture (model 1). The input of the model is a two-channel image. The first channel is the analysed image and the second channel is a binary mask containing only the highest pixels of objects in the image. The loss function and metric of the model is the mean square error (MSE) between the model prediction and a pre-plotted map of object heights (target). The target has the same dimensionality as the input image and contains non-zero pixels, height values, only at the positions of the highest points of objects in the image, similar to the binary mask. The MSE is computed for the non-zero pixels of the binary mask/target. 
+The model was trained on 187 images and validated and tested on 38 and 18 images respectively. The model produces a prediction in the form of a single-channel height map with the same dimensionality as the input image. The binary mask from input channel 2 is then applied to the model prediction, leaving only the pixels at the positions of the highest pixel of each object. The training resulted in a metric on the test dataset of ~0.29 nm2.
 
-Проект посвящен вычислению высот объектов на изображениях СЗМ-микроскопии с помощью сверточной нейросети с архитектурой U-net, на вход которой подается двухканальное изображение - анализируемое изображение и бинарная маска, оставляющая на изображении только наивысшие точки объектов, - а функцией потерь и метрикой является среднеквадратичное отклонение (MSE) между предсказанием модели и заранее размеченной картой высот объектов (вычисляется только по пикселям, выделенным маской). Проведено обучение модели на 187 изображениях, валидация и тестирование модели проводилось на 39 и 18 изображениях, соответственно. Модель выдает предсказание в виде одноканальной карты высот той же размерности, что и входное изображение, при этом на выходное изображение накладывается та же самая бинарная маска, которая подавалась в качестве второго канала на вход, она оставляет только искомые значения максимальных пикселей объектов.
-В результате обучения была достигнута метрика на тестовом датасете ~ 0.78 нм2.
+To predict the heights of the globular objects on the user data (inference), the second convolutional neural network with U-net architecture (model 2) was trained, which finds the objects in an image and creates the binary mask of the highest pixels of objects in an image for the model 1 input.
+
+The inference ("predict.py" file) works as follows:
+The SPM image file is required for input. The SPM image file should be in txt format. The architecture of the format can be found in the example files in the Images folder. The SPM images obtained on the different microscopes were converted to a txt format using the 'Export' button in FemtoScan software.
+
+The output of the inference contains 3 parts: 
+1. The source image with the enumerated objects
+2. The txt file with the height of each object. The order of the height values in the txt file corresponds to the enumeration in the image.
+3. The histogram of the height distribution.
 
 
 # Installation

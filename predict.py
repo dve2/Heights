@@ -6,11 +6,10 @@ from dataset_inst import BaseDataset
 import albumentations as A
 import cv2
 
-def check_neigh(mask, coord):    #возвращает координаты всех непосредственных соседей пикселя с координатами coord на маске mask,
-    #включая сами координаты coord, в формате [(xcoord,ycoord),(x2,y2)...], где x - номер строки, y - номер столбца
+def check_neigh(mask, coord):
     neighbours = []
-    y0,x0 = coord    #номер строки, номер столбца исходного пикселя
-    Ny, Nx = mask.shape    #количество строк, количество столбцов в маске
+    y0,x0 = coord
+    Ny, Nx = mask.shape
     ymin = max(0, y0-1)
     ymax = min(y0+1, Ny-1)
     xmin = max(0, x0-1)
@@ -26,19 +25,17 @@ def crop192(image, xmin, ymin):
 
 
 def remain_max_dots(mask, image):
-    Ny, Nx = mask.shape  # количество строк, количество столюцов в маске
+    Ny, Nx = mask.shape
     obj_coord = []
     for i in range(Ny):
         for j in range(Nx):
             if mask[i][j] != 0:
                 obj_coord.append((i, j))
 
-    # создаем словарь связных микрообластей
     d = {}
     for i in range(len(obj_coord)):
         d[obj_coord[i]] = check_neigh(mask, obj_coord[i])
 
-    # объединение ключей, содержащих один одинаковый элемент
     for i in range(len(obj_coord)):
         keys = []
         for key in d:
@@ -48,13 +45,11 @@ def remain_max_dots(mask, image):
         for i2, elmt in enumerate(keys):
             if i2 >= 1:
                 d[keys[0]].extend(d.pop(
-                    elmt))  # элементы словаря по собранным выше ключам загружаем в первый из этих ключей и удаляем этот ключ из словаря d
+                    elmt)) 
 
-    # удаляем повторяющиеся элементы по каждому ключу
     for key in d:
         d[key] = list(set(d[key]))
 
-    # Поиск координат, соответствующих максимуму каждого объекта
     dotted_mask_from_mask = np.zeros((Ny, Nx), dtype=np.float32)
     for key in d:
         obj_coord = d[key]
@@ -66,10 +61,10 @@ def remain_max_dots(mask, image):
 
 def main():
     model = smp.Unet(
-    encoder_name="efficientnet-b0",  # choose encoder
-    encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
-    in_channels=1,  # model input channels 3 for RGB
-    classes=2,  # model output channels (number of classes in mask)
+    encoder_name="efficientnet-b0",
+    encoder_weights=None,
+    in_channels=1,
+    classes=2,
     )
 
 
@@ -78,10 +73,10 @@ def main():
     model.eval()
 
     model2 = smp.Unet(
-    encoder_name="efficientnet-b0",  # choose encoder
-    encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
-    in_channels=2,  # model input channels 3 for RGB
-    classes=1,  # model output channels (number of classes in mask)
+    encoder_name="efficientnet-b0",  
+    encoder_weights=None,  
+    in_channels=2,  
+    classes=1,  
     )
 
     model2_weights = torch.load("weights/model2.pt",weights_only=True)
@@ -124,16 +119,12 @@ def main():
         for j, ymin in enumerate(y_mesh):
             cropped = crop192(image, xmin,
                               ymin)  # numpy.ndarray (192, 192)    #crops 192*192 fragment starting from ymin line, xmin column
-            # aut_dot_mask = create_aut_dot_mask(cropped)    #numpy.ndarray (192, 192)     #creates mask with the local maximums of cropped image
             cropped_torch = torch.from_numpy(cropped)  # torch.Size([192, 192])
             out = model(cropped_torch.unsqueeze(0).unsqueeze(
                 0)).detach().cpu()  # torch.Size([1, 2, 192, 192])    #predicts globules
             out_merged = out.squeeze(0).argmax(0)  # torch.Size([192, 192])    #creates mask of globules from the prediction
-            # out_merged[aut_dot_mask == 0] = 0    #torch.Size([192, 192])    #zeros pixels that are not the local maxima
-            # print(out_merged)
             out_merged = remain_max_dots(out_merged.numpy(),
-                                         cropped)  # torch.Size([192, 192]) #TODO: another option to create seconds channel for second neuron net is to find maxima inside each predicted area and zero all except them
-            # print(out_merged)
+                                         cropped)  # torch.Size([192, 192])
             cropped_torch = cropped_torch.unsqueeze(0)  # torch.Size([1, 192, 192])
             out_merged = out_merged.unsqueeze(0)  # torch.Size([1, 192, 192])
             im_mask = torch.cat((cropped_torch, out_merged),
@@ -153,7 +144,7 @@ def main():
                 lsp = y_mesh[-2] + 192 - y_mesh[-1] - k
                 d_hpred = d_hpred[lsp:, :]
 
-            column = torch.cat((column, d_hpred), 0)  # столбец предсказаний шириной 192 высотой изображения
+            column = torch.cat((column, d_hpred), 0) 
         if i == 0:
             column = column[:, :(192 - k)]
         if (i > 0 and i < (len(x_mesh) - 1)):
@@ -162,8 +153,7 @@ def main():
             lsp = x_mesh[-2] + 192 - x_mesh[-1] - k
             column = column[:, lsp:]
         pred_whole_image = torch.cat((pred_whole_image, column),
-                                     1)  # конкатенация столюцов (с учетом сдвигов для исключения использования
-        # предсказаний на краях) высотой изображения до формировния предсказания размером с полное изображение
+                                     1) 
     result = (pred_whole_image.detach()).long().numpy()
     cv2.imwrite('results/tmp.png', result)
 
