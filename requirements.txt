@@ -8,4 +8,4 @@ pandas[excel]
 tifffile
 matplotlib
 torchmetrics
-pytorch-lightning==1.8.6
+lightning
