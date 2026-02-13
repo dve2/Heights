@@ -3,7 +3,9 @@ torchvision
 albumentations
 pandas
 tqdm
-segmentation-models-pytorch
+segmentation-models-pytorch==0.3.4
 pandas[excel]
 tifffile
 matplotlib
+torchmetrics
+lightning
