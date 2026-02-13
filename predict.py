@@ -1,8 +1,8 @@
 import torch
 import  numpy as np
 import segmentation_models_pytorch as smp
-from src.h_norm import NormalizeNonZero
-from dataset_inst import BaseDataset
+from heights.metrics import NormalizeNonZero
+from heights.dataset import BaseDataset
 import albumentations as A
 import cv2
 import os

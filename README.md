@@ -28,8 +28,9 @@ Make [virtual environment](https://docs.python.org/3/library/venv.html):
 
 Activate .venv and install required packages:
 
-    source venv/bin/activate
+    source .venv/bin/activate
     pip install -r requirements.txt
+    pip install -e .
     
 
 For use in colab:
@@ -47,11 +48,17 @@ For use in colab:
 to [Inference folder](Inference)
 3. Activate virtual environment
 
-       source venv/bin/activate
+       source .venv/bin/activate
 4. Run [predict.py](predict.py)
 
        python predict.py
 5. Results will be saved into 
+
+Example top-level scripts (after `pip install -e .`):
+
+    python test.py
+    python inference.py
+    python predict.py
 
 
 
@@ -68,4 +75,3 @@ Example of working inference (any file from test dataset; downloads big file):
 [train example](https://colab.research.google.com/github/dve2/Heights/blob/main/notebooks/Train_2ch_ml_dm.ipynb)
 
 Training dataset available by request
-

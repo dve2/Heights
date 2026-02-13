@@ -1,5 +1,5 @@
-from src.model import load
-from src.dataset import DoubleMaskDataset
+from heights.model import load
+from heights.dataset import DoubleMaskDataset
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import torch

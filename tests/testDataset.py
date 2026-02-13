@@ -2,8 +2,8 @@ import unittest
 import torch
 from torch.utils.data import non_deterministic
 
-from src.dataset import DoubleMaskDataset, GroundDataset
-from src.utils import get_max_inside_blobs
+from heights.dataset import DoubleMaskDataset, GroundDataset
+from heights.utils import get_max_inside_blobs
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from PIL import Image
