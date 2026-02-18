@@ -93,7 +93,7 @@ def parse_args():
     parser.add_argument(
         "--weights",
         default="weights/Heights_epoch=4993-step=59928.ckpt",
-        help="Path to model checkpoint file",
+        help="Path to Heights - model checkpoint file",
     )
     return parser.parse_args()
 

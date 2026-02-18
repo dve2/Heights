@@ -56,9 +56,10 @@ to [Inference folder](Inference)
 3. Activate virtual environment
 
        source .venv/bin/activate
-4. Run [evaluate.py](evaluate.py)
+4. Now you can Run  [evaluate.py](evaluate.py)
 
        python evaluation.py --data-dir <path-to-data-folder> --weights <path-to-weights.ckpt>
+       # Results saved to <output-folder>
 
 
 Example of working inference (one file only)

@@ -1,3 +1,4 @@
+from email import parser
 import torch
 import  numpy as np
 import segmentation_models_pytorch as smp
@@ -8,6 +9,14 @@ import cv2
 import os
 import matplotlib.pyplot as plt
 import argparse
+
+
+"""
+    Model work on 192*192 fragments of the image. This script crops the image into 192*192 fragments,
+    predict heights on them and then merges the predictions into one whole image.
+
+"""
+
 
 def check_neigh(mask, coord):
     neighbours = []
@@ -84,21 +93,51 @@ def save(pred_whole_image, filename):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Predict globular object heights")
+
     parser.add_argument(
-        "--model1-weights",
-        default="weights/Heights_epoch=4993-step=59928.ckpt",
-        help="Path to `Heights` model weights file",
-    )
-    parser.add_argument(
-        "--model2-weights",
+        "--areas_model_checkpoint",
         default="weights/Areas_epoch=691-step=4152(1).ckpt",
-        help="Path to `Areas`model  weights file",
+        help="Path to `Areas` model  weights file",
     )
+
+    parser.add_argument("--height_model_checkpoint",
+        default="weights/Heights_epoch=4993-step=59928.ckpt",
+        help="Path to Heights - model checkpoint file",)
+    
+    parser.add_argument(
+        "--output-folder",
+        default="results",
+        help="Folder where prediction outputs will be saved",
+    )
+    
+    
     return parser.parse_args()
+
+def load_unet_state_dict(model, ckpt_path, device):
+    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+    state = ckpt.get("state_dict", ckpt)
+
+    if not isinstance(state, dict):
+        raise ValueError(f"Checkpoint {ckpt_path} does not contain a state_dict")
+
+    # Lightning module saved params under "model.*"
+    if any(k.startswith("model.") for k in state):
+        state = {
+            k[len("model."):]: v
+            for k, v in state.items()
+            if k.startswith("model.")
+        }
+
+    model.load_state_dict(state, strict=True)
+    model.to(device)
+    model.eval()
+
 
 
 def main():
     args = parse_args()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
     model = smp.Unet(
     encoder_name="efficientnet-b0",
@@ -107,9 +146,7 @@ def main():
     classes=2,
     )
 
-
-    model_weights = torch.load(args.model1_weights, weights_only=True)
-    model.load_state_dict(model_weights)
+    load_unet_state_dict(model, args.areas_model_checkpoint, device)
     model.eval()
 
     model2 = smp.Unet(
@@ -119,19 +156,15 @@ def main():
     classes=1,  
     )
 
-    model2_weights = torch.load(args.model2_weights, weights_only=True)
-    model2.load_state_dict(model2_weights)
+    load_unet_state_dict(model2, args.height_model_checkpoint, device)
     model2.eval()
 
 
-    #Normalization by the dotted mask
+    # Normalization by the dotted mask
     dot_target_mean, dot_target_std = 3.016509424749255, 2.452459479074767
     nnz = NormalizeNonZero(dot_target_mean, dot_target_std)
 
-
     mean, std = [8.489298], [9.06547]
-
-
 
     val_transforms = A.Compose(
     [
@@ -140,8 +173,8 @@ def main():
         #ToTensorV2(),
     ],
     )
-    ds_inference = BaseDataset(root_dir = "Inference", transform  = val_transforms)
-    image, meta = ds_inference[0]
+    ds_inference = BaseDataset(root_dir = "tests/data", transform  = val_transforms)
+    image, _,  meta = ds_inference[0]
 
 
     Ny, Nx = image.shape
@@ -159,7 +192,7 @@ def main():
         for j, ymin in enumerate(y_mesh):
             cropped = crop192(image, xmin,
                               ymin)  # numpy.ndarray (192, 192)    #crops 192*192 fragment starting from ymin line, xmin column
-            cropped_torch = torch.from_numpy(cropped)  # torch.Size([192, 192])
+            cropped_torch = torch.from_numpy(cropped).to(device)  # torch.Size([192, 192])
             out = model(cropped_torch.unsqueeze(0).unsqueeze(
                 0)).detach().cpu()  # torch.Size([1, 2, 192, 192])    #predicts globules
             out_merged = out.squeeze(0).argmax(0)  # torch.Size([192, 192])    #creates mask of globules from the prediction
@@ -167,10 +200,10 @@ def main():
                                          cropped)  # torch.Size([192, 192])
             cropped_torch = cropped_torch.unsqueeze(0)  # torch.Size([1, 192, 192])
             out_merged = out_merged.unsqueeze(0)  # torch.Size([1, 192, 192])
-            im_mask = torch.cat((cropped_torch, out_merged),
+            im_mask = torch.cat((cropped_torch, out_merged.to(device)),
                                 0)  # torch.Size([1, 192, 192]) #creates two channel tensor, where 1st
             # channel is image, 2nd channel is mask
-            hpred = model2(im_mask.unsqueeze(0)).detach().cpu()  # torch.Size([1, 1, 192, 192])
+            hpred = model2(im_mask.unsqueeze(0).to(device)).detach().cpu()  # torch.Size([1, 1, 192, 192])
             d_hpred = nnz.denorm(hpred)  # torch.Size([1, 1, 192, 192])
             d_hpred = d_hpred.squeeze(0).squeeze(0)  # torch.Size([192, 192])
             d_hpred[out_merged.squeeze(0) == 0] = 0  # torch.Size([192, 192]) height map
@@ -196,12 +229,14 @@ def main():
 
 
     # Dump results
-    output_folder = "results"
+    output_folder = args.output_folder
+    os.makedirs(output_folder, exist_ok=True)
     base_filename = meta['name']
     save(pred_whole_image.detach(), f"{output_folder}{os.sep}Heights {base_filename}")
 
-    result = (pred_whole_image.detach()).long().numpy()
-    cv2.imwrite(f'results/{base_filename}_img.png', result)
+    result = pred_whole_image.detach().cpu().numpy()
+    result_vis = cv2.normalize(result, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    cv2.imwrite(f"{output_folder}{os.sep}{base_filename}_img.png", result_vis)
 
 
 if __name__ == '__main__':
