@@ -56,10 +56,14 @@ to [Inference folder](Inference)
 3. Activate virtual environment
 
        source .venv/bin/activate
-4. Now you can Run  [evaluate.py](evaluate.py)
 
-       python evaluation.py --data-dir <path-to-data-folder> --weights <path-to-weights.ckpt>
-       # Results saved to <output-folder>
+4. Now you can run scripts 
+
+       # To get metrics
+       python  [evaluate.py](evaluate.py) --data-dir <path-to-data-folder> --weights <path-to-weights.ckpt>
+
+       # To get prediction for onw whole image (not crop)
+       python predict.py --output-folder <path-for-save-results> --areas_model_checkpoint <path-to-areas-weights.ckpt> --height_model_checkpoint <path-to-height-weights.ckpt>
 
 
 Example of working inference (one file only)
