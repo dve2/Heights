@@ -7,6 +7,7 @@ import albumentations as A
 import cv2
 import os
 import matplotlib.pyplot as plt
+import argparse
 
 def check_neigh(mask, coord):
     neighbours = []
@@ -81,7 +82,24 @@ def save(pred_whole_image, filename):
     plt.savefig(f"{filename}_hist.png")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Predict globular object heights")
+    parser.add_argument(
+        "--model1-weights",
+        default="weights/Heights_epoch=4993-step=59928.ckpt",
+        help="Path to `Heights` model weights file",
+    )
+    parser.add_argument(
+        "--model2-weights",
+        default="weights/Areas_epoch=691-step=4152(1).ckpt",
+        help="Path to `Areas`model  weights file",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+
     model = smp.Unet(
     encoder_name="efficientnet-b0",
     encoder_weights=None,
@@ -90,7 +108,7 @@ def main():
     )
 
 
-    model_weights = torch.load("weights/model1.pt",weights_only=True)
+    model_weights = torch.load(args.model1_weights, weights_only=True)
     model.load_state_dict(model_weights)
     model.eval()
 
@@ -101,7 +119,7 @@ def main():
     classes=1,  
     )
 
-    model2_weights = torch.load("weights/model2.pt",weights_only=True)
+    model2_weights = torch.load(args.model2_weights, weights_only=True)
     model2.load_state_dict(model2_weights)
     model2.eval()
 

@@ -32,6 +32,13 @@ Activate .venv and install required packages:
     pip install -r requirements.txt
     pip install -e .
     
+Download model weights
+
+[areas](https://drive.google.com/file/d/1Wl-j_syF3uo-Tdko0VnUv2wbRcwAPTyx/view?usp=sharing) 
+[heights](https://drive.google.com/file/d/1Wl-j_syF3uo-Tdko0VnUv2wbRcwAPTyx/view?usp=sharing) 
+
+and put it into [weights](weights) folder
+
 
 For use in colab:
 
@@ -49,18 +56,9 @@ to [Inference folder](Inference)
 3. Activate virtual environment
 
        source .venv/bin/activate
-4. Run [predict.py](predict.py)
+4. Run [evaluate.py](evaluate.py)
 
-       python predict.py
-5. Results will be saved into 
-
-Example top-level scripts (after `pip install -e .`):
-
-    python test.py
-    python inference.py
-    python predict.py
-
-
+       python evaluation.py --data-dir <path-to-data-folder> --weights <path-to-weights.ckpt>
 
 
 Example of working inference (one file only)

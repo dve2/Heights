@@ -3,7 +3,8 @@ torchvision
 albumentations
 pandas
 tqdm
-segmentation-models-pytorch==0.3.4
+#segmentation-models-pytorch==0.3.4  # for old weights compatibility
+segmentation-models-pytorch==0.5.0
 pandas[excel]
 tifffile
 matplotlib
