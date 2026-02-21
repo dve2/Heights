@@ -51,19 +51,20 @@ For use in colab:
 
         cd Heights
 
-2. Copy **input files** (TODO : change to proper names of microscope outputs)
-to [Inference folder](Inference)
+2. Copy **input files** to [Inference folder](Inference)
 3. Activate virtual environment
 
        source .venv/bin/activate
 
 4. Now you can run scripts 
 
-       # To get metrics
-       python  [evaluate.py](evaluate.py) --data-dir <path-to-data-folder> --weights <path-to-weights.ckpt>
-
        # To get prediction for onw whole image (not crop)
-       python predict.py --output-folder <path-for-save-results> --areas_model_checkpoint <path-to-areas-weights.ckpt> --height_model_checkpoint <path-to-height-weights.ckpt>
+       python predict.py --input-file  <path-to-atm-output.txt> --output-folder <path-for-save-results> --areas_model_checkpoint <path-to-areas-weights.ckpt> --height_model_checkpoint <path-to-height-weights.ckpt>
+       
+       # To get metrics
+       python  evaluate.py --data-dir <path-to-data-folder> --weights <path-to-weights.ckpt>
+
+       
 
 
 Example of working inference (one file only)

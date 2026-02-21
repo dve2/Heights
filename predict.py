@@ -9,6 +9,7 @@ import cv2
 import os
 import matplotlib.pyplot as plt
 import argparse
+from tqdm import tqdm
 
 
 """
@@ -148,8 +149,6 @@ def main():
     val_transforms = A.Compose(
     [
         A.Normalize(mean, std),
-        #A.CenterCrop(192, 192),
-        #ToTensorV2(),
     ],
     )
     ds_parser = BaseDataset(root_dir=".", transform=None)
@@ -168,7 +167,7 @@ def main():
     y_mesh[-1] = (Ny - 192)
 
     pred_whole_image = torch.empty((Ny, 0), dtype=torch.float32)
-    for i, xmin in enumerate(x_mesh):
+    for i, xmin in tqdm(enumerate(x_mesh)):
         column = torch.empty((0, 192), dtype=torch.float32)
         for j, ymin in enumerate(y_mesh):
             cropped = crop192(image, xmin,
@@ -217,14 +216,15 @@ def main():
     result = pred_whole_image.detach().cpu().numpy()
     result_vis = cv2.normalize(result, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
     cv2.imwrite(f"{output_folder}{os.sep}{base_filename}_img.png", result_vis)
-    print(f"Predictions saved to {output_folder}{os.sep}")
+    print(f"Processed {args.input_file}, saved heights and visualization to {output_folder}{os.sep}")
+    
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Predict globular object heights")
     parser.add_argument(
         "--input-file",
-        required=True,
+        default="Inference/2017.03.30 CP MPO.022_1024.txt",
         help="Path to one microscope.txt input file",
     )
 
