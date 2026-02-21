@@ -91,27 +91,6 @@ def save(pred_whole_image, filename):
     plt.savefig(f"{filename}_hist.png")
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Predict globular object heights")
-
-    parser.add_argument(
-        "--areas_model_checkpoint",
-        default="weights/Areas_epoch=691-step=4152(1).ckpt",
-        help="Path to `Areas` model  weights file",
-    )
-
-    parser.add_argument("--height_model_checkpoint",
-        default="weights/Heights_epoch=4993-step=59928.ckpt",
-        help="Path to Heights - model checkpoint file",)
-    
-    parser.add_argument(
-        "--output-folder",
-        default="results",
-        help="Folder where prediction outputs will be saved",
-    )
-    
-    
-    return parser.parse_args()
 
 def load_unet_state_dict(model, ckpt_path, device):
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
@@ -173,8 +152,10 @@ def main():
         #ToTensorV2(),
     ],
     )
-    ds_inference = BaseDataset(root_dir = "tests/data", transform  = val_transforms)
-    image, _,  meta = ds_inference[0]
+    ds_parser = BaseDataset(root_dir=".", transform=None)
+    image, _ = ds_parser.txt2pil(args.input_file)
+    image = val_transforms(image=image)["image"]
+    base_filename = os.path.splitext(os.path.basename(args.input_file))[0]
 
 
     Ny, Nx = image.shape
@@ -231,12 +212,39 @@ def main():
     # Dump results
     output_folder = args.output_folder
     os.makedirs(output_folder, exist_ok=True)
-    base_filename = meta['name']
     save(pred_whole_image.detach(), f"{output_folder}{os.sep}Heights {base_filename}")
 
     result = pred_whole_image.detach().cpu().numpy()
     result_vis = cv2.normalize(result, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
     cv2.imwrite(f"{output_folder}{os.sep}{base_filename}_img.png", result_vis)
+    print(f"Predictions saved to {output_folder}{os.sep}")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Predict globular object heights")
+    parser.add_argument(
+        "--input-file",
+        required=True,
+        help="Path to one microscope.txt input file",
+    )
+
+    parser.add_argument(
+        "--areas_model_checkpoint",
+        default="weights/Areas_epoch=691-step=4152(1).ckpt",
+        help="Path to `Areas` model  weights file",
+    )
+
+    parser.add_argument("--height_model_checkpoint",
+        default="weights/Heights_epoch=4993-step=59928.ckpt",
+        help="Path to Heights - model checkpoint file",)
+    
+    parser.add_argument(
+        "--output-folder",
+        default="results",
+        help="Folder where prediction outputs will be saved",
+    )
+        
+    return parser.parse_args()
 
 
 if __name__ == '__main__':
