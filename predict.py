@@ -224,7 +224,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Predict globular object heights")
     parser.add_argument(
         "--input-file",
-        default="Inference/2017.03.30 CP MPO.022_1024.txt",
+        default="tests/inference/gluncl21-2.0_00013.txt",
         help="Path to one microscope.txt input file",
     )
 

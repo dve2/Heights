@@ -51,7 +51,7 @@ For use in colab:
 
         cd Heights
 
-2. Copy **input files** to [Inference folder](Inference)
+2. Copy **input files** (in .txt) to somewhere i.e. [tests/inference](tests/inference)
 3. Activate virtual environment
 
        source .venv/bin/activate
