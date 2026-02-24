@@ -40,10 +40,6 @@ Download model weights
 and put it into [weights](weights) folder
 
 
-For use in colab:
-
-    TODO add colab notebook for inference
-
 
 # Inference
 
@@ -73,9 +69,3 @@ Example of working inference (one file only)
 Example of working inference (any file from test dataset; downloads big file):
 [inference example](https://colab.research.google.com/github/dve2/Heights/blob/main/notebooks/inference.ipynb)
 
-
-# Training
-
-[train example](https://colab.research.google.com/github/dve2/Heights/blob/main/notebooks/Train_2ch_ml_dm.ipynb)
-
-Training dataset available by request
