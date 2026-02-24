@@ -10,6 +10,10 @@ import os
 import matplotlib.pyplot as plt
 import argparse
 from tqdm import tqdm
+import time
+import resource
+import sys
+import platform
 
 
 """
@@ -113,11 +117,91 @@ def load_unet_state_dict(model, ckpt_path, device):
     model.eval()
 
 
+def get_peak_rss_mb():
+    """Return peak resident set size in MiB for the current process."""
+    peak_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    if sys.platform == "darwin":
+        return peak_rss / (1024 * 1024)
+    return peak_rss / 1024
+
+
+def get_hardware_name(device):
+    if device.type == "cuda":
+        return torch.cuda.get_device_name(device)
+
+    try:
+        with open("/proc/cpuinfo", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.lower().startswith("model name"):
+                    return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+
+    cpu_name = platform.processor().strip()
+    if cpu_name:
+        return cpu_name
+
+    cpu_name = platform.uname().processor.strip()
+    if cpu_name:
+        return cpu_name
+
+    return "CPU"
+
+
+def collect_metrics(device, tiles_count, total_t0, preprocess_t1, infer_t0, infer_t1):
+    total_t1 = time.perf_counter()
+    peak_memory_mb = get_peak_rss_mb()
+    if device.type == "cuda":
+        peak_memory_mb += torch.cuda.max_memory_reserved(device) / (1024 * 1024)
+
+    return {
+        "device": str(device),
+        "hardware_name": get_hardware_name(device),
+        "tiles_count": tiles_count,
+        "total_sec": total_t1 - total_t0,
+        "preprocess_sec": preprocess_t1 - total_t0,
+        "inference_sec": infer_t1 - infer_t0,
+        "postprocess_sec": total_t1 - infer_t1,
+        "peak_memory_mb": peak_memory_mb,
+    }
+
+
+def print_metrics(metrics):
+    tiles = metrics["tiles_count"]
+    inf_sec = metrics["inference_sec"]
+    total_sec = metrics["total_sec"]
+    tiles_per_sec = (tiles / inf_sec) if inf_sec > 0 else 0.0
+
+    print("\n=== Inference profiling ===")
+    print(f"Device: {metrics['device']}")
+    print(f"Hardware: {metrics['hardware_name']}")
+    print(f"Tiles processed: {tiles}")
+    print(f"Total pipeline time: {total_sec:.3f} s")
+    print(f"Preprocess time: {metrics['preprocess_sec']:.3f} s")
+    print(f"Inference loop time: {inf_sec:.3f} s")
+    print(f"Postprocess/save time: {metrics['postprocess_sec']:.3f} s")
+    print(f"Throughput: {tiles_per_sec:.2f} tiles/s")
+    print(f"Peak memory usage: {metrics['peak_memory_mb']:.2f} MiB")
+    print("===========================\n")
+
+
 
 def main():
     args = parse_args()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if args.device == "auto":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    elif args.device == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError("`--device cuda` requested, but CUDA is not available.")
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
+    total_t0 = time.perf_counter()
+
     print(f"Using device: {device}")
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
 
     model = smp.Unet(
     encoder_name="efficientnet-b0",
@@ -155,6 +239,7 @@ def main():
     image, _ = ds_parser.txt2pil(args.input_file)
     image = val_transforms(image=image)["image"]
     base_filename = os.path.splitext(os.path.basename(args.input_file))[0]
+    preprocess_t1 = time.perf_counter()
 
 
     Ny, Nx = image.shape
@@ -166,10 +251,16 @@ def main():
     y_mesh = [i*(192-2*k) for i in range(Ny//(192-2*k)+1)]
     y_mesh[-1] = (Ny - 192)
 
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    infer_t0 = time.perf_counter()
+
     pred_whole_image = torch.empty((Ny, 0), dtype=torch.float32)
+    tiles_count = 0
     for i, xmin in tqdm(enumerate(x_mesh)):
         column = torch.empty((0, 192), dtype=torch.float32)
         for j, ymin in enumerate(y_mesh):
+            tiles_count += 1
             cropped = crop192(image, xmin,
                               ymin)  # numpy.ndarray (192, 192)    #crops 192*192 fragment starting from ymin line, xmin column
             cropped_torch = torch.from_numpy(cropped).to(device)  # torch.Size([192, 192])
@@ -207,6 +298,9 @@ def main():
             column = column[:, lsp:]
         pred_whole_image = torch.cat((pred_whole_image, column),1)
 
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    infer_t1 = time.perf_counter()
 
     # Dump results
     output_folder = args.output_folder
@@ -217,6 +311,17 @@ def main():
     result_vis = cv2.normalize(result, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
     cv2.imwrite(f"{output_folder}{os.sep}{base_filename}_img.png", result_vis)
     print(f"Processed {args.input_file}, saved heights and visualization to {output_folder}{os.sep}")
+
+    if args.profile_metrics:
+        metrics = collect_metrics(
+            device=device,
+            tiles_count=tiles_count,
+            total_t0=total_t0,
+            preprocess_t1=preprocess_t1,
+            infer_t0=infer_t0,
+            infer_t1=infer_t1,
+        )
+        print_metrics(metrics)
     
 
 
@@ -242,6 +347,19 @@ def parse_args():
         "--output-folder",
         default="results",
         help="Folder where prediction outputs will be saved",
+    )
+
+    parser.add_argument(
+        "--device",
+        default="auto",
+        choices=["auto", "cpu", "cuda"],
+        help="Execution device: auto (prefer CUDA), cpu, or cuda.",
+    )
+
+    parser.add_argument(
+        "--profile-metrics",
+        action="store_true",
+        help="Print timing and memory usage metrics for the full pipeline.",
     )
         
     return parser.parse_args()
