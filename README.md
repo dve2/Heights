@@ -40,10 +40,6 @@ Download model weights
 and put it into [weights](weights) folder
 
 
-For use in colab:
-
-    TODO add colab notebook for inference
-
 
 # Inference
 
