@@ -56,6 +56,9 @@ and put it into [weights](weights) folder
 
        # To get prediction for onw whole image (not crop)
        python predict.py --input-file  <path-to-atm-output.txt> --output-folder <path-for-save-results> --areas_model_checkpoint <path-to-areas-weights.ckpt> --height_model_checkpoint <path-to-height-weights.ckpt>
+
+       # To profile inference over all .txt images in a folder
+       python profile_predict.py --input-folder tests/data/10_img_profiling --output-folder results --device cuda
        
        # To get metrics
        python  evaluate.py --data-dir <path-to-data-folder> --weights <path-to-weights.ckpt>
@@ -68,4 +71,3 @@ Example of working inference (one file only)
 
 Example of working inference (any file from test dataset; downloads big file):
 [inference example](https://colab.research.google.com/github/dve2/Heights/blob/main/notebooks/inference.ipynb)
-
